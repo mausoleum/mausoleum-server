@@ -33,7 +33,9 @@ def upload():
     """Uploads a file and its metadata. Also requires the path to be specified."""
     user = user_from_token(request.form["token"])
 
-    enc_file = EncryptedFile(user.id, request.form["path"])
+    enc_file = EncryptedFile.query.filter_by(owner_id=user.id, owner_path=request.form["path"]).first()
+    if enc_file is None:
+        enc_file = EncryptedFile(user.id, request.form["path"])
     enc_file.set_contents(request.files["file"].read())
     db.session.add(enc_file)
     db.session.commit()
