@@ -4,6 +4,7 @@ import bcrypt, os, base64
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mausoleum.db'
+app.config["UPLOAD_DIR"] = '/tmp/mausoleum'
 db.app = app
 db.init_app(app)
 db.create_all()
@@ -21,7 +22,6 @@ def get_token():
     else:
         token = Token()
         token.token = base64.b64encode(os.urandom(256))[:128]
-        print token.token
         token.user = user
         db.session.add(token)
         db.session.commit()
@@ -30,8 +30,8 @@ def get_token():
 
 @app.route('/file', methods=["POST"])
 def upload():
-    """Uploads a file and its metadata. Also requires the path to be specified."""
-    user = user_from_token(request.form["token"])
+    """Uploads a file/edits an existing file. Requires the path to be specified."""
+    user = user_from_token()
 
     enc_file = EncryptedFile.query.filter_by(owner_id=user.id, owner_path=request.form["path"]).first()
     if enc_file is None:
@@ -44,15 +44,21 @@ def upload():
 
 @app.route('/file', methods=["GET"])
 def get():
-    user = user_from_token(request.args.get('token'))
-
+    """Get a file from its path."""
+    user = user_from_token()
     enc_file = EncryptedFile.query.filter_by(owner_id=user.id, owner_path=request.args.get("path")).first()
     if enc_file is None:
         abort(404)
     else:
         return enc_file.get_contents()
 
-def user_from_token(tok):
+
+def user_from_token():
+    """Get the user object from the token GET/POST parameter."""
+    if request.method == "POST":
+        tok = request.form["token"]
+    else:
+        tok = request.args.get("token")
     token = Token.query.filter_by(token=tok).first()
     if not token:
         abort(401)
