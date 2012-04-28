@@ -1,4 +1,4 @@
-import bcrypt
+import bcrypt, hashlib, os
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -7,13 +7,16 @@ class User(db.Model):
     __tablename__ = "user"
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(), unique=True, nullable=False)
-    password_hash = db.Column(db.String(), nullable=False)
+    username = db.Column(db.Text, unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
     token = db.relationship('Token', backref='user', uselist=False)
+    files = db.relationship('EncryptedFile', backref='user')
 
     def __init__(self, username, password):
         self.username = username
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
+        self.token = False
+        self.files = []
 
     @classmethod
     def get(cls, username, password):
@@ -40,3 +43,36 @@ class Token(db.Model):
 
     def __repr__(self):
         return "<Token %r>" % self.token
+
+
+class EncryptedFile(db.Model):
+    __tablename__ = "encrypted_file"
+
+    id = db.Column(db.Integer, primary_key=True)
+    disk_path = db.Column(db.Text, unique=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.username'))
+    owner_path = db.Column(db.Text, unique=True)
+
+    def __init__(self, owner_id, owner_path):
+        self.owner_id = owner_id
+        self.owner_path = owner_path
+
+    def get_contents(self):
+        f = open(self.disk_path, 'r')
+        return f.read()
+
+    def set_contents(self, contents):
+        digest = hashlib.sha256(contents).hexdigest()
+        dir_name = digest[0:2]
+
+        # make the digest directory shard if it doesn't exist
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        path = os.path.join(dir_name, digest)
+
+        # write the data out
+        with open(path, "w") as f:
+            f.write(contents)
+
+        self.disk_path = path
+        return path
