@@ -32,8 +32,7 @@ def get_token():
 def upload():
     """Uploads a file/edits an existing file. Requires the path to be specified."""
     user = user_from_token()
-
-    enc_file = EncryptedFile.query.filter_by(owner_id=user.id, owner_path=request.form["path"]).first()
+    enc_file = get_file()
     if enc_file is None:
         enc_file = EncryptedFile(user.id, request.form["path"])
     enc_file.set_contents(request.files["file"].read())
@@ -45,12 +44,22 @@ def upload():
 @app.route('/file', methods=["GET"])
 def get():
     """Get a file from its path."""
-    user = user_from_token()
-    enc_file = EncryptedFile.query.filter_by(owner_id=user.id, owner_path=request.args.get("path")).first()
+    enc_file = get_file()
     if enc_file is None:
         abort(404)
     else:
         return enc_file.get_contents()
+
+@app.route('/delete', methods=["POST"])
+def delete():
+    """Delete the file at the given path."""
+    enc_file = get_file()
+    if enc_file is None:
+        abort(404)
+    db.session.delete(enc_file)
+    db.session.commit()
+
+    return ""
 
 
 def user_from_token():
@@ -59,11 +68,21 @@ def user_from_token():
         tok = request.form["token"]
     else:
         tok = request.args.get("token")
+    print tok
     token = Token.query.filter_by(token=tok).first()
     if not token:
         abort(401)
     else:
         return token.user
+
+def get_file():
+    user = user_from_token()
+    if request.method == "POST":
+        path = request.form["path"]
+    else:
+        path = request.args.get("path")
+
+    return EncryptedFile.query.filter_by(owner_id=user.id, owner_path=path).first()
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
