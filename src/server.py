@@ -68,7 +68,7 @@ def user_from_token():
         tok = request.form["token"]
     else:
         tok = request.args.get("token")
-    print tok
+
     token = Token.query.filter_by(token=tok).first()
     if not token:
         abort(401)
