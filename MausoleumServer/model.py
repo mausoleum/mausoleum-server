@@ -1,5 +1,5 @@
 import bcrypt, hashlib, os
-from flask_sqlalchemy import SQLAlchemy
+from flask.ext.sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
