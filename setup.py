@@ -9,4 +9,5 @@ setup(name='MausoleumServer',
       author_email='mausoleum@mit.edu',
       url='https://github.com/mausoleum/mausoleum-server',
       packages=find_packages(),
+      test_suite='MausoleumServer.test',
      )

@@ -15,8 +15,6 @@ class User(db.Model):
     def __init__(self, username, password):
         self.username = username
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
-        self.token = False
-        self.files = []
 
     @classmethod
     def get(cls, username, password):

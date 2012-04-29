@@ -5,9 +5,6 @@ import bcrypt, os, base64
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mausoleum.db'
 app.config["UPLOAD_DIR"] = '/tmp/mausoleum'
-db.app = app
-db.init_app(app)
-db.create_all()
 
 @app.route('/get_token', methods=["POST"])
 def get_token():
@@ -21,7 +18,9 @@ def get_token():
     if user.token: token = user.token
     else:
         token = Token()
-        token.token = base64.b64encode(os.urandom(256))[:128]
+        # Want tokens to be fixed length, it's okay if we lose a
+        # little bit of data
+        token.token = base64.b64encode(os.urandom(128))[:128]
         token.user = user
         db.session.add(token)
         db.session.commit()
@@ -84,6 +83,12 @@ def get_file():
 
     return EncryptedFile.query.filter_by(owner_id=user.id, owner_path=path).first()
 
+def init_db():
+    db.app = app
+    db.init_app(app)
+    db.create_all()
+
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True, host='0.0.0.0')
 
