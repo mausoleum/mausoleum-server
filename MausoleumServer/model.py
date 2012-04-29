@@ -1,7 +1,13 @@
-import bcrypt, hashlib, os
+import bcrypt, hashlib, os, datetime, json, time
 from flask.ext.sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import and_
 
 db = SQLAlchemy()
+
+shared_files = db.Table('sharing',
+                     db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+                     db.Column('file_id', db.Integer, db.ForeignKey('encrypted_file.id'))
+)
 
 class User(db.Model):
     __tablename__ = "user"
@@ -10,7 +16,9 @@ class User(db.Model):
     username = db.Column(db.Text, unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     token = db.relationship('Token', backref='user', uselist=False)
-    files = db.relationship('EncryptedFile', backref='user')
+    files = db.relationship('EncryptedFile', backref='owner')
+    shared_files = db.relationship('EncryptedFile', backref='shared_user', secondary=shared_files)
+    events = db.relationship('Event', backref='user')
 
     def __init__(self, username, password):
         self.username = username
@@ -48,8 +56,9 @@ class EncryptedFile(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     disk_path = db.Column(db.Text, unique=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.username'))
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     owner_path = db.Column(db.Text, unique=True)
+    shared_users = db.relationship("User", backref="EncryptedFile", secondary=shared_files)
 
     def __init__(self, owner_id, owner_path):
         self.owner_id = owner_id
@@ -60,6 +69,8 @@ class EncryptedFile(db.Model):
         return f.read()
 
     def set_contents(self, contents):
+        """Set the contents of the file. Note that this causes a new
+        file to be created, and the old one is not deleted."""
         digest = hashlib.sha256(contents).hexdigest()
         dir_name = os.path.join(db.app.config["UPLOAD_DIR"], digest[0:2])
         # make the digest directory shard if it doesn't exist
@@ -73,3 +84,24 @@ class EncryptedFile(db.Model):
 
         self.disk_path = path
         return path
+
+
+
+class Event(db.Model):
+    """Models an event that a user needs to be notified of."""
+    __tablename__ = "event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    timestamp = db.Column(db.DateTime(False))
+    contents = db.Column(db.String)
+
+    def __init__(self, user, contents):
+        self.user = user
+        self.contents = contents
+        self.timestamp = datetime.datetime.utcnow()
+
+    def to_jsonable(self):
+        """Serializes an Event object into its timestamp and
+        contents. The timestamp is in seconds since the Unix epoch."""
+        return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents}

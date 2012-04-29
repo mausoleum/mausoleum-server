@@ -1,6 +1,6 @@
 from model import *
 from flask import g, Flask, request, abort, jsonify
-import bcrypt, os, base64
+import bcrypt, os, base64, json
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mausoleum.db'
@@ -60,6 +60,16 @@ def delete():
 
     return ""
 
+@app.route('/events', methods=["GET"])
+def events():
+    user = user_from_token()
+    timestamp = datetime.datetime.fromtimestamp(float(request.args.get("timestamp")))
+    events = Event.query.filter_by(user=user)
+    relevant = and_(Event.timestamp >= timestamp, Event.user == user)
+    events = Event.query.filter(relevant)
+
+    # turn the events into JSON and return it
+    return json.dumps(map(lambda x: x.to_jsonable(), events))
 
 def user_from_token():
     """Get the user object from the token GET/POST parameter."""
