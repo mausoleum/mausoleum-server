@@ -37,6 +37,7 @@ def upload():
     enc_file.set_contents(request.files["file"].read())
     db.session.add(enc_file)
     db.session.commit()
+    process_metadata(enc_file)
 
     return ""
 
@@ -57,6 +58,7 @@ def delete():
         abort(404)
     db.session.delete(enc_file)
     db.session.commit()
+    process_metadata(enc_file)
 
     return ""
 
@@ -92,6 +94,16 @@ def get_file():
         path = request.args.get("path")
 
     return EncryptedFile.query.filter_by(owner_id=user.id, owner_path=path).first()
+
+def process_metadata(enc_file):
+    metadata = request.form["metadata"]
+    signature = request.form["metadata_signature"]
+
+    # create Events for each user that this file is shared with
+    to_notify = enc_file.shared_users
+    events = [Event(user, metadata, signature) for user in to_notify]
+    db.session.add_all(events)
+    db.session.commit()
 
 def init_db():
     db.app = app

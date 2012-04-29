@@ -17,7 +17,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     token = db.relationship('Token', backref='user', uselist=False)
     files = db.relationship('EncryptedFile', backref='owner')
-    shared_files = db.relationship('EncryptedFile', backref='shared_user', secondary=shared_files)
+    shared_files = db.relationship('EncryptedFile', backref='shared_users', secondary=shared_files)
     events = db.relationship('Event', backref='user')
 
     def __init__(self, username, password):
@@ -58,7 +58,6 @@ class EncryptedFile(db.Model):
     disk_path = db.Column(db.Text, unique=True)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     owner_path = db.Column(db.Text, unique=True)
-    shared_users = db.relationship("User", backref="EncryptedFile", secondary=shared_files)
 
     def __init__(self, owner_id, owner_path):
         self.owner_id = owner_id
@@ -94,14 +93,16 @@ class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     timestamp = db.Column(db.DateTime(False))
-    contents = db.Column(db.String)
+    signature = db.Column(db.Text)
+    contents = db.Column(db.Text)
 
-    def __init__(self, user, contents):
+    def __init__(self, user, contents, signature):
         self.user = user
         self.contents = contents
+        self.signature = signature
         self.timestamp = datetime.datetime.utcnow()
 
     def to_jsonable(self):
         """Serializes an Event object into its timestamp and
         contents. The timestamp is in seconds since the Unix epoch."""
-        return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents}
+        return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "signature": self.signature}
