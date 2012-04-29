@@ -28,4 +28,4 @@ pip-log.txt
 
 
 # user database
-/src/mausoleum.db
+*.db
