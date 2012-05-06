@@ -6,6 +6,22 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mausoleum.db'
 app.config["UPLOAD_DIR"] = '/tmp/mausoleum'
 
+@app.route('/register', methods=["POST"])
+def register():
+    username = request.form["username"]
+    password = request.form["password"]
+
+    user = User.query.filter_by(username=username).first()
+    if user is not None:
+        abort(400)
+
+    user = User(username, password)
+    db.session.add(user)
+    db.session.commit()
+
+    return get_token()
+
+
 @app.route('/get_token', methods=["POST"])
 def get_token():
     """If the username and password are correct, sets a cookie labeled
