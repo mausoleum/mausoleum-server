@@ -57,7 +57,7 @@ class EncryptedFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     disk_path = db.Column(db.Text, unique=True)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    owner_path = db.Column(db.Text, unique=True)
+    owner_path = db.Column(db.Text)
 
     def __init__(self, owner_id, owner_path):
         self.owner_id = owner_id
@@ -95,14 +95,18 @@ class Event(db.Model):
     timestamp = db.Column(db.DateTime(False))
     signature = db.Column(db.Text)
     contents = db.Column(db.Text)
+    type = db.Column(db.Text)
 
-    def __init__(self, user, contents, signature):
+    def __init__(self, user, contents, event_type, signature=None):
         self.user = user
         self.contents = contents
         self.signature = signature
+        self.type = event_type
         self.timestamp = datetime.datetime.utcnow()
 
     def to_jsonable(self):
         """Serializes an Event object into its timestamp and
         contents. The timestamp is in seconds since the Unix epoch."""
-        return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "signature": self.signature}
+        d = {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "type": self.type}
+        if self.signature: d["signature"] = self.signature
+        return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "signature": self.signature, "type": self.type}

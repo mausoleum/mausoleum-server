@@ -1,4 +1,5 @@
 from model import *
+from util import *
 from flask import g, Flask, request, abort, jsonify
 import bcrypt, os, base64, json
 
@@ -50,10 +51,11 @@ def upload():
     enc_file = get_file()
     if enc_file is None:
         enc_file = EncryptedFile(user.id, request.form["path"])
+
     enc_file.set_contents(request.files["file"].read())
     db.session.add(enc_file)
     db.session.commit()
-    process_metadata(enc_file)
+    process_metadata(enc_file, "update")
 
     return ""
 
@@ -74,12 +76,14 @@ def delete():
         abort(404)
     db.session.delete(enc_file)
     db.session.commit()
-    process_metadata(enc_file)
+    process_metadata(enc_file, "delete")
 
     return ""
 
 @app.route('/events', methods=["GET"])
 def events():
+    """List all the events that the user is interested in since the
+    given timestamp."""
     user = user_from_token()
     timestamp = datetime.datetime.fromtimestamp(float(request.args.get("timestamp")))
     events = Event.query.filter_by(user=user)
@@ -89,37 +93,33 @@ def events():
     # turn the events into JSON and return it
     return json.dumps(map(lambda x: x.to_jsonable(), events))
 
-def user_from_token():
-    """Get the user object from the token GET/POST parameter."""
-    if request.method == "POST":
-        tok = request.form["token"]
-    else:
-        tok = request.args.get("token")
+@app.route('/add_key', methods=["POST"])
+def add_key():
+    """Add an event for another user setting the key for a given
+    path. Parameters are:
 
-    token = Token.query.filter_by(token=tok).first()
-    if not token:
-        abort(401)
-    else:
-        return token.user
-
-def get_file():
+    user -- the target user
+    path -- the path the key is for
+    key -- a text representation of the actual key
+    """
     user = user_from_token()
-    if request.method == "POST":
-        path = request.form["path"]
-    else:
-        path = request.args.get("path")
+    target = request.form["user"]
+    target = User.query.filter_by(username=target).first()
+    if target is None:
+        abort(404)
 
-    return EncryptedFile.query.filter_by(owner_id=user.id, owner_path=path).first()
+    path = request.form["path"]
+    key = request.form["key"]
 
-def process_metadata(enc_file):
-    metadata = request.form["metadata"]
-    signature = request.form["metadata_signature"]
+    enc_file = EncryptedFile.query.filter_by(owner=user, owner_path=path).first()
+    enc_file.shared_users.append(target)
 
-    # create Events for each user that this file is shared with
-    to_notify = enc_file.shared_users
-    events = [Event(user, metadata, signature) for user in to_notify]
-    db.session.add_all(events)
+    obj = json.dumps({"path": path, "key": key})
+    ev = Event(target, obj, "add_key")
+    db.session.add_all([ev, enc_file])
     db.session.commit()
+
+    return ""
 
 def init_db():
     db.app = app
