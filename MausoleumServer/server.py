@@ -62,6 +62,7 @@ def upload():
     path -- the file path
     metadata -- file upload metadata (hash of the file, etc.)
     metadata_signature -- a signature of the metadata
+    user -- (optional) the user of the file
     """
     user = user_from_token()
     enc_file = get_file()
@@ -79,7 +80,10 @@ def upload():
 def get():
     """Get a file from its path.
 
-    path -- the file path"""
+    path -- the file path
+    user -- (optional) the user of the file
+    """
+
     enc_file = get_file()
     if enc_file is None:
         abort(404)
