@@ -9,6 +9,13 @@ app.config["UPLOAD_DIR"] = '/tmp/mausoleum'
 
 @app.route('/register', methods=["POST"])
 def register():
+    """Register a new user.
+
+    username -- the username
+    password -- the password
+
+    Returns a 400 if that user already exists.
+    """
     username = request.form["username"]
     password = request.form["password"]
 
@@ -25,9 +32,13 @@ def register():
 
 @app.route('/get_token', methods=["POST"])
 def get_token():
-    """If the username and password are correct, sets a cookie labeled
-    'token' with an authentication token good for the next 24
-    hours. If not, causes a 403 Forbidden."""
+    """If the username and password are correct, returns a JSON object
+    with json["token"] as the token itself. If not, causes a 403
+    Forbidden.
+
+    username -- the username
+    password -- the password
+    """
     user = User.get(request.form["username"], request.form["password"])
     if user is None:
         abort(403)
@@ -46,7 +57,12 @@ def get_token():
 
 @app.route('/file', methods=["POST"])
 def upload():
-    """Uploads a file/edits an existing file. Requires the path to be specified."""
+    """Uploads a file/edits an existing file. Requires the path to be specified.
+
+    path -- the file path
+    metadata -- file upload metadata (hash of the file, etc.)
+    metadata_signature -- a signature of the metadata
+    """
     user = user_from_token()
     enc_file = get_file()
     if enc_file is None:
@@ -61,7 +77,9 @@ def upload():
 
 @app.route('/file', methods=["GET"])
 def get():
-    """Get a file from its path."""
+    """Get a file from its path.
+
+    path -- the file path"""
     enc_file = get_file()
     if enc_file is None:
         abort(404)
@@ -70,7 +88,9 @@ def get():
 
 @app.route('/delete', methods=["POST"])
 def delete():
-    """Delete the file at the given path."""
+    """Delete the file at the given path.
+
+    path -- the file's path"""
     enc_file = get_file()
     if enc_file is None:
         abort(404)
@@ -83,7 +103,10 @@ def delete():
 @app.route('/events', methods=["GET"])
 def events():
     """List all the events that the user is interested in since the
-    given timestamp."""
+    given timestamp.
+
+    timestamp -- the timestamp to start looking at events from, in
+    seconds since the epoch."""
     user = user_from_token()
     timestamp = datetime.datetime.fromtimestamp(float(request.args.get("timestamp")))
     events = Event.query.filter_by(user=user)
@@ -101,7 +124,10 @@ def add_key():
     user -- the target user
     path -- the path the key is for
     key -- a text representation of the actual key
+
+    404s if the target user or target file does not exist.
     """
+
     user = user_from_token()
     target = request.form["user"]
     target = User.query.filter_by(username=target).first()
@@ -111,9 +137,12 @@ def add_key():
     path = request.form["path"]
     key = request.form["key"]
 
+    # mark the file as shared to the target user
     enc_file = EncryptedFile.query.filter_by(owner=user, owner_path=path).first()
+    if enc_file is None: abort(404)
     enc_file.shared_users.append(target)
 
+    # turn the key into JSON
     obj = json.dumps({"path": path, "key": key})
     ev = Event(target, obj, "add_key")
     db.session.add_all([ev, enc_file])
