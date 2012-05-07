@@ -4,6 +4,7 @@ import requests
 import os
 import json
 import base64
+from StringIO import StringIO
 
 from MausoleumServer import server
 from MausoleumServer.model import *
@@ -34,6 +35,20 @@ class TestFileIO(unittest.TestCase):
         result = self.app.post('/get_token', data=baduser)
 
         self.assertEquals(result.status_code, 403)
+
+    def test_upload_file(self):
+        self.test_get_token()
+        req = {'token': self.token, 'path': 'test.txt',
+               'file': (StringIO('This is a test'), 'blah.txt'),
+               'metadata': 'foo', 'metadata_signature': 'bar'}
+        result = self.app.post('/file', data=req)
+        self.assertEquals(result.status_code, 200)
+
+    def test_download_file(self):
+        self.test_upload_file()
+        req = {'token': self.token, 'path': 'test.txt'}
+        result = self.app.get('/file', query_string=req)
+        self.assertEquals(result.status_code, 200)
         
     def tearDown(self):
         os.close(self.db_fd)
