@@ -94,7 +94,10 @@ def get():
 def delete():
     """Delete the file at the given path.
 
-    path -- the file's path"""
+    path -- the file's path
+    metadata -- json containing the metadata for the delete update
+    metadata_signature -- a signature for the metadata
+    """
     enc_file = get_file()
     if enc_file is None:
         abort(404)
@@ -139,20 +142,55 @@ def add_key():
         abort(404)
 
     path = request.form["path"]
-    key = request.form["key"]
+    key_val = request.form["key"]
 
     # mark the file as shared to the target user
-    enc_file = EncryptedFile.query.filter_by(owner=user, owner_path=path).first()
+    enc_file = EncryptedFile.query.filter_by(owner=target, owner_path=path).first()
+
     if enc_file is None: abort(404)
     enc_file.shared_users.append(target)
 
+    # set the key appropriately
+    key = Key.query.filter_by(file=enc_file, user=target).first()
+    if key is None: # create it
+        key = Key(target, enc_file, key_val)
+    else:
+        key.key_val = key_val
+
+
     # turn the key into JSON
-    obj = json.dumps({"path": path, "key": key})
+    obj = json.dumps({"path": path, "key": key_val})
     ev = Event(target, obj, "add_key")
-    db.session.add_all([ev, enc_file])
+    db.session.add_all([ev, enc_file, key])
     db.session.commit()
 
     return ""
+
+@app.route('/file/key', methods=["GET"])
+def get_key():
+    """Get the key for a particular file. Aborts with a 403 if the
+    requesting user does not have access to that particular file, or
+    if the file does not exist.
+
+    path -- the file path
+    user -- the username of the file's owner
+    """
+
+    enc_file = get_file()
+    if enc_file is None:
+        abort(404)
+
+    target = request.args["user"]
+    target = User.query.filter_by(username=target).first()
+    if target is None:
+        abort(404)
+
+    key = Key.query.filter_by(user=target, file=enc_file).first()
+    if key is None:
+        abort(404)
+
+    return key.key_val
+
 
 def init_db():
     db.app = app

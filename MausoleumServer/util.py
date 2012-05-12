@@ -61,3 +61,4 @@ def process_metadata(enc_file, event_type):
     events = [Event(user, metadata, event_type, signature) for user in to_notify if user != originator]
     db.session.add_all(events)
     db.session.commit()
+

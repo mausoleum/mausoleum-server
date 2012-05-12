@@ -19,6 +19,7 @@ class User(db.Model):
     files = db.relationship('EncryptedFile', backref='owner')
     shared_files = db.relationship('EncryptedFile', backref='shared_users', secondary=shared_files)
     events = db.relationship('Event', backref='user')
+    keys = db.relationship('Key', backref='user')
 
     def __init__(self, username, password):
         self.username = username
@@ -58,6 +59,7 @@ class EncryptedFile(db.Model):
     disk_path = db.Column(db.Text, unique=True)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     owner_path = db.Column(db.Text)
+    keys = db.relationship("Key", backref="file")
 
     def __init__(self, owner_id, owner_path):
         self.owner_id = owner_id
@@ -83,6 +85,9 @@ class EncryptedFile(db.Model):
 
         self.disk_path = path
         return path
+
+    def __repr__(self):
+        return "<EncryptedFile owner=%s owner_path=%s>" % (self.owner, self.owner_path)
 
 
 
@@ -110,3 +115,18 @@ class Event(db.Model):
         d = {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "type": self.type}
         if self.signature: d["signature"] = self.signature
         return {"timestamp": time.mktime(self.timestamp.timetuple()), "contents": self.contents, "signature": self.signature, "type": self.type}
+
+
+class Key(db.Model):
+    """Models a key for a file."""
+    __tablename__ = "file_key"
+
+    id = db.Column(db.Integer, primary_key=True)
+    file_id = db.Column(db.Integer, db.ForeignKey('encrypted_file.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    key_val = db.Column(db.Binary)
+
+    def __init__(self, user, file, key_val):
+        self.user = user
+        self.file = file
+        self.key_val = key_val

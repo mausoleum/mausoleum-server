@@ -26,7 +26,7 @@ class TestFileIO(unittest.TestCase):
     def test_get_token(self):
         result = self.app.post('/get_token', data=self.default_user)
         self.assertEquals(result.status_code, 200)
-        
+
         self.token = json.loads(result.data)['token']
         self.assertEquals(len(self.token), 128)
 
@@ -49,7 +49,21 @@ class TestFileIO(unittest.TestCase):
         req = {'token': self.token, 'path': 'test.txt'}
         result = self.app.get('/file', query_string=req)
         self.assertEquals(result.status_code, 200)
-        
+
+    def test_add_key(self):
+        self.test_upload_file()
+        req = {'token': self.token, 'path': 'test.txt',
+               'user': 'username', 'key': 'a key'}
+        result = self.app.post('/add_key', data=req)
+        self.assertEquals(result.status_code, 200)
+
+    def test_set_key(self):
+        self.test_add_key()
+        req = {'token': self.token, 'path': 'test.txt',
+               'user': 'username'}
+        result = self.app.get('/file/key', query_string=req)
+        self.assertEquals(result.data, "a key")
+
     def tearDown(self):
         os.close(self.db_fd)
         os.unlink(self.db_path)
