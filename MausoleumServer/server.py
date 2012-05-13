@@ -113,7 +113,9 @@ def events():
     given timestamp.
 
     timestamp -- the timestamp to start looking at events from, in
-    seconds since the epoch."""
+    seconds since the epoch.
+    """
+
     user = user_from_token()
     timestamp = datetime.datetime.fromtimestamp(float(request.args.get("timestamp")))
     events = Event.query.filter_by(user=user)
@@ -136,8 +138,10 @@ def add_key():
     """
 
     user = user_from_token()
+
     target = request.form["user"]
     target = User.query.filter_by(username=target).first()
+
     if target is None:
         abort(404)
 
@@ -145,7 +149,7 @@ def add_key():
     key_val = request.form["key"]
 
     # mark the file as shared to the target user
-    enc_file = EncryptedFile.query.filter_by(owner=target, owner_path=path).first()
+    enc_file = EncryptedFile.query.filter_by(owner=user, owner_path=path).first()
 
     if enc_file is None: abort(404)
     enc_file.shared_users.append(target)
@@ -160,7 +164,7 @@ def add_key():
 
     # turn the key into JSON
     obj = json.dumps({"path": path, "key": key_val})
-    ev = Event(target, obj, "add_key")
+    ev = Event(target, obj, "add_key", enc_file, request.form["metadata_signature"])
     db.session.add_all([ev, enc_file, key])
     db.session.commit()
 
@@ -177,19 +181,37 @@ def get_key():
     """
 
     enc_file = get_file()
+    target = get_target()
+    user = user_from_token()
+
+    if enc_file is None or target is None:
+        abort(404)
+
+    key = Key.query.filter_by(user=user, file=enc_file).first()
+    if key is None:
+        abort(403)
+
+    return key.key_val
+
+@app.route('/file/metadata', methods=["GET"])
+def get_metadata():
+    """Get the latest metadata for a particular file. Aborts with a
+    403 if the requesting user does not have access to that particular
+    file, or if the file does not exist.
+
+    path -- the file path
+    user -- the username of the file's owner
+    """
+
+    enc_file = get_file()
+    user = user_from_token()
+
     if enc_file is None:
         abort(404)
 
-    target = request.args["user"]
-    target = User.query.filter_by(username=target).first()
-    if target is None:
-        abort(404)
+    event = enc_file.last_event_for(user)
 
-    key = Key.query.filter_by(user=target, file=enc_file).first()
-    if key is None:
-        abort(404)
-
-    return key.key_val
+    return json.dumps(event.to_jsonable())
 
 
 def init_db():

@@ -1,6 +1,6 @@
 import bcrypt, hashlib, os, datetime, json, time
 from flask.ext.sqlalchemy import SQLAlchemy
-from sqlalchemy.sql import and_
+from sqlalchemy.sql import and_, desc
 
 db = SQLAlchemy()
 
@@ -59,6 +59,7 @@ class EncryptedFile(db.Model):
     disk_path = db.Column(db.Text, unique=True)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     owner_path = db.Column(db.Text)
+    events = db.relationship("Event", backref="file")
     keys = db.relationship("Key", backref="file")
 
     def __init__(self, owner_id, owner_path):
@@ -86,6 +87,10 @@ class EncryptedFile(db.Model):
         self.disk_path = path
         return path
 
+    def last_event_for(self, user):
+        return Event.query.filter_by(file=self, user=user).order_by(desc(Event.timestamp)).first()
+
+
     def __repr__(self):
         return "<EncryptedFile owner=%s owner_path=%s>" % (self.owner, self.owner_path)
 
@@ -97,13 +102,15 @@ class Event(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    timestamp = db.Column(db.DateTime(False))
-    signature = db.Column(db.Text)
-    contents = db.Column(db.Text)
-    type = db.Column(db.Text)
+    file_id = db.Column(db.Integer, db.ForeignKey('encrypted_file.id'))
+    timestamp = db.Column(db.DateTime(False), nullable=False)
+    signature = db.Column(db.Text, nullable=False)
+    contents = db.Column(db.Text, nullable=False)
+    type = db.Column(db.Text, nullable=False)
 
-    def __init__(self, user, contents, event_type, signature=None):
+    def __init__(self, user, contents, event_type, file, signature=None):
         self.user = user
+        self.file = file
         self.contents = contents
         self.signature = signature
         self.type = event_type
