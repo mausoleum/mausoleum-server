@@ -123,7 +123,7 @@ def events():
     # turn the events into JSON and return it
     return json.dumps(map(lambda x: x.to_jsonable(), events))
 
-@app.route('/add_key', methods=["POST"])
+@app.route('/file/key', methods=["POST"])
 def add_key():
     """Add an event for another user setting the key for a given
     path. Parameters are:
