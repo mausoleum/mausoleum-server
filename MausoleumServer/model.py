@@ -73,7 +73,7 @@ class EncryptedFile(db.Model):
     def set_contents(self, contents):
         """Set the contents of the file. Note that this causes a new
         file to be created, and the old one is not deleted."""
-        digest = hashlib.sha256(contents).hexdigest()
+        digest = hashlib.sha512(contents).hexdigest()
         dir_name = os.path.join(db.app.config["UPLOAD_DIR"], digest[0:2])
         # make the digest directory shard if it doesn't exist
         if not os.path.exists(dir_name):
