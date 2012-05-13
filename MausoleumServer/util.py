@@ -58,7 +58,7 @@ def process_metadata(enc_file, event_type):
     # create Events for each user that this file is shared with, other
     # than the person who started the event
     to_notify = enc_file.shared_users + [enc_file.owner]
-    events = [Event(user, metadata, event_type, enc_file, signature) for user in to_notify if user != originator]
+    events = [Event(user, metadata, event_type, enc_file, signature) for user in to_notify]
     db.session.add_all(events)
     db.session.commit()
 
