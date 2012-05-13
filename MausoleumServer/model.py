@@ -131,7 +131,7 @@ class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     file_id = db.Column(db.Integer, db.ForeignKey('encrypted_file.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    key_val = db.Column(db.Binary)
+    key_val = db.Column(db.Text)
 
     def __init__(self, user, file, key_val):
         self.user = user
