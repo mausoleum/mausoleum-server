@@ -88,7 +88,7 @@ class EncryptedFile(db.Model):
         return path
 
     def last_event_for(self, user):
-        return Event.query.filter_by(file=self, user=user).order_by(desc(Event.timestamp)).first()
+        return Event.query.filter_by(file=self, user=user).filter(Event.type != "add_key").order_by(desc(Event.timestamp)).first()
 
 
     def __repr__(self):
